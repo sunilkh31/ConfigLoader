@@ -1,4 +1,4 @@
-package com.configloader.main;
+package com.platform.config;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -10,7 +10,7 @@ import java.util.HashSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-public class Config {
+public final class AppConfig {
 
     private static final Pattern sectionPattern = Pattern.compile("\\s*\\[([^]]*)\\]\\s*");
     private static final Pattern keyValuePattern = Pattern.compile("\\s*([^=]*)=(.*)");
@@ -22,7 +22,19 @@ public class Config {
 
     private HashMap<String, HashMap<String, String>> configDetails = new HashMap<>();
 
-    public static Config load(String filePath, String[] overrides) throws IOException {
+    // An instance of AppConfig can only be created by using load method
+    private AppConfig() {
+    }
+
+    /**
+     * Loads the configuration file in memory and drops all the unrelated overrides configuration.
+     * 
+     * @param filePath
+     * @param overrides
+     * @return
+     * @throws IOException
+     */
+    public static AppConfig load(String filePath, String... overrides) throws IOException {
         if (filePath == null || filePath.isEmpty()) {
             throw new IllegalArgumentException("Invalid filename");
         }
@@ -38,7 +50,7 @@ public class Config {
         try {
             reader = new BufferedReader(new FileReader(userFileName));
             String lastSection = "";
-            Config config = new Config();
+            AppConfig appConfig = new AppConfig();
 
             while (true) {
                 String line = reader.readLine();
@@ -50,12 +62,12 @@ public class Config {
                     continue;
 
                 if (isSectionStart(line)) {
-                    lastSection = addNewSection(config, line);
+                    lastSection = addNewSection(appConfig, line);
                 } else {
-                    addSectionDetails(overrideSet, lastSection, config, line);
+                    addSectionDetails(overrideSet, lastSection, appConfig, line);
                 }
             }
-            return config;
+            return appConfig;
         } finally {
             if (reader != null) {
                 reader.close();
@@ -79,16 +91,17 @@ public class Config {
      * 
      * @param overrideSet
      * @param lastSection
-     * @param config
+     * @param appConfig
      * @param line
      */
-    private static void addSectionDetails(HashSet<String> overrideSet, String lastSection, Config config, String line) {
+    private static void addSectionDetails(HashSet<String> overrideSet, String lastSection, AppConfig appConfig,
+            String line) {
         String[] entry = extractEntry(line, overrideSet);
         if (lastSection == "") {
             throw new IllegalArgumentException("No valid section found for the given section detail " + line);
         }
         if (entry != null) {
-            config.configDetails.get(lastSection).put(entry[0], entry[1]);
+            appConfig.configDetails.get(lastSection).put(entry[0], entry[1]);
         }
     }
 
@@ -96,14 +109,14 @@ public class Config {
      * Adds a new section, NOP if a section with the given name is already found. Thus allowing a section to be
      * partitioned across the configuration file
      * 
-     * @param config
+     * @param appConfig
      * @param line
      * @return
      */
-    private static String addNewSection(Config config, String line) {
+    private static String addNewSection(AppConfig appConfig, String line) {
         String lastSection = getSectionName(line);
-        if (!config.configDetails.containsKey(lastSection)) {
-            config.configDetails.put(lastSection, new HashMap<>());
+        if (!appConfig.configDetails.containsKey(lastSection)) {
+            appConfig.configDetails.put(lastSection, new HashMap<>());
         }
         return lastSection;
     }

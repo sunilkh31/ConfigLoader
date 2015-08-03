@@ -20,3 +20,79 @@ Assumptions:
 10. Incorrect entries in the configuration files are ignored at the moment.
 11. Returns null for any configuration key which cannot be found.
 12. For section details without a valid section, error is thrown.
+
+******************
+Configuration Loader
+Every large software project has its share of configuration files to control settings,
+execution, etc. Let’s contemplate a config file format that looks a lot like standard PHP .ini
+files, but with a few tweaks. A config file will appear as follows:
+[common]
+basic_size_limit = 26214400
+student_size_limit = 52428800
+paid_users_size_limit = 2147483648
+path = /srv/var/tmp/
+path<itscript> = /srv/tmp/
+[ftp]
+name = “hello there, ftp uploading”
+path = /tmp/
+path<production> = /srv/var/tmp/
+path<staging> = /srv/uploads/
+path<ubuntu> = /etc/var/uploads
+enabled = no
+; This is a comment
+[http]
+name = “http uploading”
+path = /tmp/
+path<production> = /srv/var/tmp/
+path<staging> = /srv/uploads/; This is another comment
+params = array,of,values
+Where
+● “[group]” denotes the start of a group of related config options
+● “setting = value“ denotes a standard setting name and associated default value
+● “setting<override> = value2” denotes the value for the setting if the given override is
+enabled
+● If multiple enabled overrides are defined on a setting, the one defined last will have
+priority.
+
+Objective:
+To write a function that parses this format and returns an object that can be
+queried for “group.variable” or “group”.
+* Note that overrides can be passed as String array
+A sample in java would be:
+Config conf = Config.load(“/path/to/config_file”, new
+String(){“ubuntu”, “production” })
+> Config.get(“common.paid_users_size_limit”);
+# returns 2147483648
+> Config.get("ftp.name”);
+# returns “hello there, ftp uploading”
+> Config.get("http.params”)
+# returns [“array”, “of”, “values”]
+> Config.get("ftp.lastname”);
+# returns null
+> Config.get("ftp.enabled”);
+# returns false (permitted bool values are “yes”, “no”, “true”,
+“false”, 1, 0)
+> Config.get("ftp.path”);
+# returns “/etc/var/uploads”
+> Config.get("ftp
+# returns a symbolized hashmap:
+{
+“name” == “http uploading”,
+“path” == “/etc/var/uploads”,
+“enabled” == false
+}
+
+Design Considerations
+1. Config.load() will be called at boot time, and thus should be as fast as possible. Conf
+files can get quite lengthy there can be an arbitrary number of groups and number of
+settings within each group.
+2. Config.get() will be queried throughout the program’s execution, so each query should
+be very fast as well.
+3. Certain queries will be made very often (thousands of times), others pretty rarely.
+4. If the conf file is not well formed, it is acceptable to print an error and exit from within
+Config.load(). Once the object is returned, however, it is not permissible to exit or
+crash no matter what the query is. Returning NULL/NIL is acceptable.
+
+
+
+
